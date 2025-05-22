@@ -6,7 +6,7 @@ from io import StringIO
 from pathlib import Path
 
 import pandas as pd
-from metaflow import IncludeFile, current
+from metaflow import IncludeFile, current, Parameter
 
 PYTHON = "3.12.8"
 
@@ -48,6 +48,16 @@ class DatasetMixin:
         help="Dataset that will be used to train the model.",
         default="data/penguins.csv",
     )
+    s3_bucket_name = Parameter(
+        "s3-bucket-name",
+        help='S3 bucket name',
+        default='penguinssss'
+    )
+    s3_key = Parameter(
+        "s3-key",
+        help='S3 key',
+        default='penguins.csv'
+    )
 
     def load_dataset(self, logger=None):
         """Load and prepare the dataset.
@@ -56,9 +66,16 @@ class DatasetMixin:
         drops any rows with missing values, and then shuffles the dataset.
         """
         import numpy as np
+        import boto3
 
         # The raw data is passed as a string, so we need to convert it into a DataFrame.
-        data = pd.read_csv(StringIO(self.dataset))
+        # data = pd.read_csv(StringIO(self.dataset))
+        if logger:
+            logger.info("Loading dataset from S3")
+        s3 = boto3.client('s3')
+
+        response = s3.get_object(Bucket=self.s3_bucket_name, Key=self.s3_key)
+        data = pd.read_csv(StringIO(response['Body'].read().decode('utf-8')))
 
         # Replace extraneous values in the sex column with NaN
         data["sex"] = data["sex"].replace(".", np.nan)
